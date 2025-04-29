@@ -13,3 +13,14 @@ The total number of ticks being sent to the different channels must to be identi
 
 ### Limitations - Single shot approach
 Setting .loop_count=0 results in single-shot pulses being sent to each respective channel. The transmit calls need to be followed by a rmt_sync_reset(), and that all needs to be to be encapsulated in an infinite while(1){... loop.  The synchronisation is perfect, and the pulse sequences can have arbitrary different lengths.  You can also use callbacks at the end of each sequence to do something.  But, that all comes at the expense of processor cycles, and a loss in the ability to control the precise frequency. 
+
+### compiling code
+Install the Espressif IDE, and then use the ESP-IDF command-line shell create a new project.
+```
+c:> idf.py create-project my_pulse_project
+``` 
+Copy the c++ file into main/my_pulse_project.c or whatever you called it.  Next, figure out what COM port your device is using.  I find the arduino IDE helpful for that purpose.  Now set the build target, and then compile, and flash.
+```
+c:> idf.py set-target esp32c3
+c:> idf.py build
+c:> idf.py flash -p COM12
