@@ -22,9 +22,7 @@ static rmt_symbol_word_t pulseSequenceB = {
 };
 
 
-void IRAM_ATTR app_main(void) {
-    // Increase task priority
-    //vTaskPrioritySet(NULL, configMAX_PRIORITIES - 1);
+void app_main(void) {
 
     // Configure and enable channels (change resolution to 10 MHz for increased precision)
     for (int i = 0; i < 2; i++) {
