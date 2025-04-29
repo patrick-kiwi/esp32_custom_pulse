@@ -1,65 +1,66 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include "driver/rmt_tx.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// Pulse timing (microseconds)
-#define PULSE_WIDTH_A 1
-#define PULSE_DELAY_A 20
-#define PULSE_WIDTH_B 2
-#define PULSE_DELAY_B 20
+
+// Define a 10 microsecond leading pulse @ 2KHz
+rmt_symbol_word_t pulsePatternA[] = {
+    { .duration0 = 10, .level0 = 1, .duration1 = 480, .level1 = 0 },   
+};
+
+/* 
+Synchronise a 3 microsecond pulse to the trailing edge of the leading pulse
+To prevent problems, make the tick number the same, or slightly less the same as for patternA
+by adding a dummy symbol to padd the tick number*/
+rmt_symbol_word_t pulsePatternB[] = {
+    { .duration0 = 10, .level0 = 0, .duration1 = 3, .level1 = 1 },
+    { .duration0 = 400, .level0 = 0, .duration1 = 0, .level1 = 0 },
+    
+};
+
 
 static rmt_channel_handle_t tx_channels[2] = {NULL};
-static gpio_num_t tx_gpio_number[] = {GPIO_NUM_7, GPIO_NUM_21 };
-
-// Pulse Sequences
-static rmt_symbol_word_t pulseSequenceA = {
-    .duration0 = PULSE_WIDTH_A, .level0 = 1, .duration1 = PULSE_DELAY_A, .level1 = 0
-};
-static rmt_symbol_word_t pulseSequenceB = {
-    .duration0 = PULSE_WIDTH_B, .level0 = 1, .duration1 = PULSE_DELAY_B, .level1 = 0
-};
-
+static gpio_num_t tx_gpio_number[2] = {GPIO_NUM_7, GPIO_NUM_21};
 
 void app_main(void) {
-
-    // Configure and enable channels (change resolution to 10 MHz for increased precision)
+    // Initialize RMT channels
     for (int i = 0; i < 2; i++) {
         rmt_tx_channel_config_t tx_chan_config = {
             .gpio_num = tx_gpio_number[i],
             .clk_src = RMT_CLK_SRC_DEFAULT,
-            .resolution_hz = 1 * 1000 * 1000, // 1 MHz
+            .resolution_hz = 1 * 1000 * 1000,
             .mem_block_symbols = 48,
-            .trans_queue_depth = 2,
+            .trans_queue_depth = 8,
         };
         ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_chan_config, &tx_channels[i]));
+    }
+
+    for (int i = 0; i < 2; i++) {
         ESP_ERROR_CHECK(rmt_enable(tx_channels[i]));
     }
 
-    // Create sync manager
     rmt_sync_manager_handle_t synchro = NULL;
     rmt_sync_manager_config_t synchro_config = {
         .tx_channel_array = tx_channels,
         .array_size = sizeof(tx_channels) / sizeof(tx_channels[0]),
     };
     ESP_ERROR_CHECK(rmt_new_sync_manager(&synchro_config, &synchro));
-    
-    // Create copy encoder
-    rmt_encoder_handle_t copy_encoder = NULL;
-    rmt_copy_encoder_config_t copy_config = {};
-    ESP_ERROR_CHECK(rmt_new_copy_encoder(&copy_config, &copy_encoder));
-
 
     rmt_transmit_config_t transmitConfig = {
-        .loop_count = 0, // Continuous(-1) or single shot(0)
-        .flags.eot_level = 0,  // End of transmission low
+        .loop_count = 0,
     };
+    
+    rmt_encoder_handle_t copyEncoder = NULL;
+    rmt_copy_encoder_config_t copyEncoderConfig = {};
+    assert(rmt_new_copy_encoder(&copyEncoderConfig, &copyEncoder) == ESP_OK && "Failed to Create Copy Encoder");
 
-    // Transmit 
+    // Reset synchronization and start transmissions
     while(1) {
-    rmt_transmit(tx_channels[0], copy_encoder, &pulseSequenceA,  sizeof(pulseSequenceA), &transmitConfig);
-    rmt_transmit(tx_channels[1], copy_encoder, &pulseSequenceB, sizeof(pulseSequenceB), &transmitConfig);
+    rmt_transmit(tx_channels[0], copyEncoder, pulsePatternA, sizeof(pulsePatternA), &transmitConfig);
+    rmt_transmit(tx_channels[1], copyEncoder, pulsePatternB, sizeof(pulsePatternB), &transmitConfig);
     rmt_sync_reset(synchro);
-    }
+}
 }
