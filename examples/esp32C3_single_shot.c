@@ -8,8 +8,9 @@ rmt_symbol_word_t pulsePatternA[] = {
 
 /* 
 Synchronise a 3 microsecond pulse to the trailing edge of the above pulse
-To prevent problems, make the tick number the same, or slightly less the same as for patternA
-by adding a dummy symbol to padd the tick number
+I'm not sure why, but you need to make the tick number about the same, 
+or slightly less compared to patternA (which is setting the frequency). 
+You can add dummy symbol which never goes high.
 */
 rmt_symbol_word_t pulsePatternB[] = {
     { .duration0 = 10, .level0 = 0, .duration1 = 3, .level1 = 1 },
